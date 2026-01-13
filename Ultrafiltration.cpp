@@ -189,6 +189,10 @@ void CUltrafiltration::Initialize(double _time)
 	for (size_t j = 0; j < model.M; ++j) AddCurveOnPlot("Concentration", "c_K_" + GetCompoundName(model.keys_cmp[j]));
 	for (size_t j = 0; j < model.M; ++j) AddCurveOnPlot("Concentration", "c_solub_" + GetCompoundName(model.keys_cmp[j]));
 
+	AddPlot("Total mass fraction", "Time", "Mfrac");
+	for (size_t j = 0; j < model.M; ++j) AddCurveOnPlot("Total mass fraction", "w_" + GetCompoundName(model.keys_cmp[j]) + "_l");
+	for (size_t j = 0; j < model.M; ++j) AddCurveOnPlot("Total mass fraction", "w_" + GetCompoundName(model.keys_cmp[j]) + "_s");
+
 	AddPlot("Yield", "Time", "Yield");
 	for (size_t j = 0; j < model.M; ++j)
 	{
@@ -400,6 +404,12 @@ void CUltrafiltrationDAEModel::ResultsHandler(double _time, double* _vars, doubl
 	{
 		unit->AddPointOnCurve("Concentration", "c_K_" + unit->GetCompoundName(keys_cmp[j]), _time, c_K_l_j[j]);
 		unit->AddPointOnCurve("Concentration", "c_solub_" + unit->GetCompoundName(keys_cmp[j]), _time, c_solub_K_l[j]);
+	}
+
+	for (size_t j = 0; j < M; ++j)
+	{
+		unit->AddPointOnCurve("Total mass fraction", "w_" + unit->GetCompoundName(keys_cmp[j]) + "_l", _time, w_K_l_j[j] * w_K_l);
+		unit->AddPointOnCurve("Total mass fraction", "w_" + unit->GetCompoundName(keys_cmp[j]) + "_s", _time, w_K_s_j[j] * w_K_s);
 	}
 
 	for (size_t j = 0; j < M; ++j)
