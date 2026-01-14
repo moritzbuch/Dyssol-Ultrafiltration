@@ -48,6 +48,10 @@ void CUltrafiltration::CreateStructure()
 	AddParametersToGroup(up_mode, EMode::RETFAC, { up_Rj1, up_Rj2, up_Rj3 });
 	AddParametersToGroup(up_mode, EMode::SOLUB, { up_c_solub_j1, up_c_solub_j2, up_c_solub_j3 });
 
+	AddConstRealParameter("Rtol", 1-3, "-", "Relative tolerance.", 0.0, 1.0);
+	AddConstRealParameter("Atol", 1-5, "-", "Relative tolerance.", 0.0, 1.0);
+
+
 	/// Add holdups
 	model.holdupTank = AddHoldup("Tank");
 	model.streamRetentate = AddStream("Retentate");
@@ -173,7 +177,8 @@ void CUltrafiltration::Initialize(double _time)
 	//model.i_mflow_in_l = model.AddDAEVariable(true, 0, 0, 0);
 
 	/// Set tolerances to the model ///
-	model.SetTolerance(1e-3, 1e-5);
+	//model.SetTolerance(1e-3, 1e-5);
+	model.SetTolerance(GetConstRealParameterValue("Rtol"), GetConstRealParameterValue("Atol"));
 
 	/// Set model to the solver ///
 	if (!solver.SetModel(&model))
@@ -306,7 +311,7 @@ void CUltrafiltrationDAEModel::Calculate(double _time, double* _vars)
 	{
 		for (size_t j = 0; j < M; ++j) c_K_l_j[j] > c_solub_K_l[j] ? upd_mflow_K_ls_j[j] = par_K_ls * (c_K_l_j[j] - c_solub_K_l[j]) : 0;
 		//for (size_t j = 0; j < M; ++j) (c_K_l_j[j] < (0.99 * c_solub_K_l[j])) && (var_m_K_s_j[j] > 1e-6) ? upd_mflow_K_sl_j[j] = par_K_sl * var_m_K_s_j[j]: 0;
-		for (size_t j = 0; j < M; ++j) (c_K_l_j[j] < (0.999 * c_solub_K_l[j])) && (var_m_K_s_j[j] > 1e-9) ? upd_mflow_K_sl_j[j] = par_K_sl * (c_solub_K_l[j] - c_K_l_j[j]) * Clamp(pow(var_m_K_s_j[j] / 1e-5, 0.75), 0.0, 1.0) : 0;
+		for (size_t j = 0; j < M; ++j) (c_K_l_j[j] < (0.9999999 * c_solub_K_l[j])) && (var_m_K_s_j[j] > 1e-9) ? upd_mflow_K_sl_j[j] = par_K_sl * (c_solub_K_l[j] - c_K_l_j[j]) * Clamp(pow(var_m_K_s_j[j] / 1e-5, 0.75), 0.0, 1.0) : 0;
 		//for (size_t j = 0; j < M; ++j) (c_K_l_j[j] < (0.999 * c_solub_K_l[j])) && (var_m_K_s_j[j] < 1e-6 && var_m_K_s_j[j] > 0) ? upd_mflow_K_sl_j[j] = par_K_sl * (c_solub_K_l[j] - c_K_l_j[j]) * (1e-6 - var_m_K_s_j[j]) / 1e-6 * (1e-6 - var_m_K_s_j[j]) / 1e-6 : 0;
 	}
 	
