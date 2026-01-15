@@ -195,8 +195,15 @@ void CUltrafiltration::Initialize(double _time)
 	for (size_t j = 0; j < model.M; ++j) AddCurveOnPlot("Concentration", "c_solub_" + GetCompoundName(model.keys_cmp[j]));
 
 	AddPlot("Total mass fraction", "Time", "Mfrac");
+	for (size_t j = 0; j < model.M; ++j) AddCurveOnPlot("Total mass fraction", "w_" + GetCompoundName(model.keys_cmp[j]) + "_tot");
 	for (size_t j = 0; j < model.M; ++j) AddCurveOnPlot("Total mass fraction", "w_" + GetCompoundName(model.keys_cmp[j]) + "_l");
 	for (size_t j = 0; j < model.M; ++j) AddCurveOnPlot("Total mass fraction", "w_" + GetCompoundName(model.keys_cmp[j]) + "_s");
+
+#if defined(_DEBUG) || defined(UNIT_DEBUG)
+	AddPlot("Total mass", "Time", "Mass");
+	for (size_t j = 0; j < model.M; ++j) AddCurveOnPlot("Total mass", "m_" + GetCompoundName(model.keys_cmp[j]) + "_l");
+	for (size_t j = 0; j < model.M; ++j) AddCurveOnPlot("Total mass", "m_" + GetCompoundName(model.keys_cmp[j]) + "_s");
+#endif
 
 	AddPlot("Yield", "Time", "Yield");
 	for (size_t j = 0; j < model.M; ++j)
@@ -311,8 +318,13 @@ void CUltrafiltrationDAEModel::Calculate(double _time, double* _vars)
 	{
 		for (size_t j = 0; j < M; ++j) c_K_l_j[j] > c_solub_K_l[j] ? upd_mflow_K_ls_j[j] = par_K_ls * (c_K_l_j[j] - c_solub_K_l[j]) : 0;
 		//for (size_t j = 0; j < M; ++j) (c_K_l_j[j] < (0.99 * c_solub_K_l[j])) && (var_m_K_s_j[j] > 1e-6) ? upd_mflow_K_sl_j[j] = par_K_sl * var_m_K_s_j[j]: 0;
-		for (size_t j = 0; j < M; ++j) (c_K_l_j[j] < (0.9999999 * c_solub_K_l[j])) && (var_m_K_s_j[j] > 1e-9) ? upd_mflow_K_sl_j[j] = par_K_sl * (c_solub_K_l[j] - c_K_l_j[j]) * Clamp(pow(var_m_K_s_j[j] / 1e-5, 0.75), 0.0, 1.0) : 0;
-		//for (size_t j = 0; j < M; ++j) (c_K_l_j[j] < (0.999 * c_solub_K_l[j])) && (var_m_K_s_j[j] < 1e-6 && var_m_K_s_j[j] > 0) ? upd_mflow_K_sl_j[j] = par_K_sl * (c_solub_K_l[j] - c_K_l_j[j]) * (1e-6 - var_m_K_s_j[j]) / 1e-6 * (1e-6 - var_m_K_s_j[j]) / 1e-6 : 0;
+		//for (size_t j = 0; j < M; ++j) (c_K_l_j[j] < (0.9999999 * c_solub_K_l[j])) && (var_m_K_s_j[j] > 1e-9) ? upd_mflow_K_sl_j[j] = par_K_sl * (c_solub_K_l[j] - c_K_l_j[j]) * Clamp(pow(var_m_K_s_j[j] / 1e-5, 0.75), 0.0, 1.0) : 0;
+		for (size_t j = 0; j < M; ++j)
+		{
+			// Smooth function for transition to zero at very low solid masses between 1e-9 and 1e-8 kg
+			double smooth = Clamp((var_m_K_s_j[j] - 1e-9) / (1e-8 - 1e-9), 0.0, 1.0);
+			(c_K_l_j[j] < (0.9999999 * c_solub_K_l[j])) && (var_m_K_s_j[j] > 1e-9) ? upd_mflow_K_sl_j[j] = par_K_sl * (c_solub_K_l[j] - c_K_l_j[j]) * smooth * Clamp(pow(var_m_K_s_j[j] / 1e-5, 0.75), 0.0, 1.0) : 0;
+		}
 	}
 	
 	// Outgoing mass flows in permeate P
@@ -413,9 +425,18 @@ void CUltrafiltrationDAEModel::ResultsHandler(double _time, double* _vars, doubl
 
 	for (size_t j = 0; j < M; ++j)
 	{
+		unit->AddPointOnCurve("Total mass fraction", "w_" + unit->GetCompoundName(keys_cmp[j]) + "_tot", _time, w_K_l_j[j] * w_K_l + w_K_s_j[j] * w_K_s);
 		unit->AddPointOnCurve("Total mass fraction", "w_" + unit->GetCompoundName(keys_cmp[j]) + "_l", _time, w_K_l_j[j] * w_K_l);
 		unit->AddPointOnCurve("Total mass fraction", "w_" + unit->GetCompoundName(keys_cmp[j]) + "_s", _time, w_K_s_j[j] * w_K_s);
 	}
+
+#if defined(_DEBUG) || defined(UNIT_DEBUG)
+	for (size_t j = 0; j < M; ++j)
+	{
+		unit->AddPointOnCurve("Total mass", "m_" + unit->GetCompoundName(keys_cmp[j]) + "_l", _time, var_m_K_l_j[j]);
+		unit->AddPointOnCurve("Total mass", "m_" + unit->GetCompoundName(keys_cmp[j]) + "_s", _time, var_m_K_s_j[j]);
+	}
+#endif
 
 	for (size_t j = 0; j < M; ++j)
 	{
